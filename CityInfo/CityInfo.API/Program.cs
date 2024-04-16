@@ -7,7 +7,8 @@ var builder = WebApplication.CreateBuilder(args); //Crea el host de la aplicacio
 builder.Services.AddControllers(options =>
 {
     options.ReturnHttpNotAcceptable = true;
-}).AddXmlDataContractSerializerFormatters(); ; //Suficiente para un API
+}).AddNewtonsoftJson()
+.AddXmlDataContractSerializerFormatters(); ; //Suficiente para un API
 
 //builder.Services.AddProblemDetails(options =>
 //{
