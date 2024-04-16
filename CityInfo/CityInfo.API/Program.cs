@@ -1,11 +1,29 @@
+using Microsoft.AspNetCore.StaticFiles;
+
 var builder = WebApplication.CreateBuilder(args); //Crea el host de la aplicacion
 
 // Add services to the container. SERVICES.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.ReturnHttpNotAcceptable = true;
+}).AddXmlDataContractSerializerFormatters(); ; //Suficiente para un API
+
+//builder.Services.AddProblemDetails(options =>
+//{
+//    options.CustomizeProblemDetails = ctx =>
+//    {
+//        ctx.ProblemDetails.Extensions.Add("additionalInfo",
+//            "Additional info example");
+//        ctx.ProblemDetails.Extensions.Add("server", 
+//            Environment.MachineName);
+//    };
+//});
+
 // Registra los servicios de la aplicacion swagger necesarios
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<FileExtensionContentTypeProvider>();
 
 //Instancia del builder para nuestra aplicación
 var app = builder.Build();
@@ -19,9 +37,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRouting();
+
 app.UseAuthorization();
 
-app.MapControllers();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
 
 app.Run();
 
