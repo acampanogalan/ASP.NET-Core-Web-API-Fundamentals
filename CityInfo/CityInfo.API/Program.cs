@@ -1,6 +1,19 @@
+using CityInfo.API;
+using CityInfo.API.Services;
 using Microsoft.AspNetCore.StaticFiles;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.Console()
+    .WriteTo.File("logs/cityinfo.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args); //Crea el host de la aplicacion
+//builder.Logging.ClearProviders(); //Limpia los logs
+//builder.Logging.AddConsole(); //Añade el log de consola
+builder.Host.UseSerilog();
+
 
 // Add services to the container. SERVICES.
 
@@ -10,6 +23,7 @@ builder.Services.AddControllers(options =>
 }).AddNewtonsoftJson()
 .AddXmlDataContractSerializerFormatters(); ; //Suficiente para un API
 
+builder.Services.AddProblemDetails(); //Middleware para tratar errores
 //builder.Services.AddProblemDetails(options =>
 //{
 //    options.CustomizeProblemDetails = ctx =>
@@ -26,8 +40,23 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<FileExtensionContentTypeProvider>();
 
+#if DEBUG
+builder.Services.AddTransient<IMailService, LocalMailService>(); //Inyeccion de dependencias
+#else
+builder.Services.AddTransient<IMailService, CloudMailService>(); //Inyeccion de dependencias
+#endif
+
+builder.Services.AddSingleton<CitiesDataStore>();
+
+
 //Instancia del builder para nuestra aplicación
 var app = builder.Build();
+
+// Configure the HTTP request pipeline. Construye la inyeccion de dependencias
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler(); //middleware para tratar errores
+}
 
 // Configure the HTTP request pipeline. Construye la inyeccion de dependencias
 if (app.Environment.IsDevelopment())
