@@ -1,6 +1,8 @@
 using CityInfo.API;
+using CityInfo.API.DbContexts;
 using CityInfo.API.Services;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -48,6 +50,9 @@ builder.Services.AddTransient<IMailService, CloudMailService>(); //Inyeccion de 
 
 builder.Services.AddSingleton<CitiesDataStore>();
 
+builder.Services.AddDbContext<CityInfoContext>(dbContextOptions =>
+dbContextOptions.UseSqlServer(builder.Configuration["ConnectionStrings:CityInfoDBConnectionString"]));
+//"Server=localhost\\SQLEXPRESS;Database=Agenda;Trusted_Connection=True;"
 
 //Instancia del builder para nuestra aplicación
 var app = builder.Build();
