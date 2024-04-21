@@ -2,6 +2,7 @@
 using CityInfo.API.Models;
 using CityInfo.API.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace CityInfo.API.Controllers
 {
@@ -11,39 +12,51 @@ namespace CityInfo.API.Controllers
     {
         private readonly ICityInfoRepository _cityInfoRepository;
         private readonly IMapper _mapper;
+        const int maxCitiesPageSize = 20;
 
-        public CitiesController(ICityInfoRepository cityInfoRepository, IMapper mapper)
+        public CitiesController(ICityInfoRepository cityInfoRepository,
+            IMapper mapper)
         {
-            _cityInfoRepository = cityInfoRepository ?? 
+            _cityInfoRepository = cityInfoRepository ??
                 throw new ArgumentNullException(nameof(cityInfoRepository));
-            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _mapper = mapper ??
+                throw new ArgumentNullException(nameof(mapper));
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CityWithoutPointsOfInterestDto>>> GetCities()
-        { 
-            var cityEntities = await _cityInfoRepository.GetCitiesAsync();
-            return Ok(_mapper.Map < IEnumerable < CityWithoutPointsOfInterestDto >>(cityEntities));
+        public async Task<ActionResult<IEnumerable<CityWithoutPointsOfInterestDto>>> GetCities(
+                    string? name, string? searchQuery, int pageNumber = 1, int pageSize = 10) //[FromQuery(Name = "filteronname")] no es necesario pero se puede poner
+        {
+            if (pageSize > maxCitiesPageSize)
+            {
+                pageSize = maxCitiesPageSize;
+            }
+
+            var (cityEntities, paginationMetadata) = await _cityInfoRepository
+                .GetCitiesAsync(name, searchQuery, pageNumber, pageSize);
+
+            Response.Headers.Add("X-Pagination",
+                JsonSerializer.Serialize(paginationMetadata));
+
+            return Ok(_mapper.Map<IEnumerable<CityWithoutPointsOfInterestDto>>(cityEntities));
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetCity(int id, bool includePointsOfInterest = false)
+        public async Task<IActionResult> GetCity(
+            int id, bool includePointsOfInterest = false)
         {
-            // find city
-            var cityToReturn = await  _cityInfoRepository.GetCityAsync(id, includePointsOfInterest);
-
-
-            if (cityToReturn == null)
+            var city = await _cityInfoRepository.GetCityAsync(id, includePointsOfInterest);
+            if (city == null)
             {
                 return NotFound();
             }
 
-            if(includePointsOfInterest)
+            if (includePointsOfInterest)
             {
-                return Ok(_mapper.Map<CityDto>(cityToReturn));
+                return Ok(_mapper.Map<CityDto>(city));
             }
 
-            return Ok(_mapper.Map<CityWithoutPointsOfInterestDto>(cityToReturn));
+            return Ok(_mapper.Map<CityWithoutPointsOfInterestDto>(city));
         }
     }
 }
