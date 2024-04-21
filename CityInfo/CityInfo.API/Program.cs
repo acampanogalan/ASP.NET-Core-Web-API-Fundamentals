@@ -54,6 +54,10 @@ builder.Services.AddDbContext<CityInfoContext>(dbContextOptions =>
 dbContextOptions.UseSqlServer(builder.Configuration["ConnectionStrings:CityInfoDBConnectionString"]));
 //"Server=localhost\\SQLEXPRESS;Database=Agenda;Trusted_Connection=True;"
 
+builder.Services.AddScoped<ICityInfoRepository, CityInfoRepository>(); //Una por request
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies()); //CurrentAssenbliesm cityInfo.API assembly sera escaneada para ver los profiles
+
 //Instancia del builder para nuestra aplicación
 var app = builder.Build();
 
