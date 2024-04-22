@@ -1,8 +1,13 @@
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using CityInfo.API;
 using CityInfo.API.DbContexts;
 using CityInfo.API.Services;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -13,13 +18,39 @@ using System.Reflection;
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .WriteTo.Console()
-    .WriteTo.File("logs/cityinfo.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args); //Crea el host de la aplicacion
 //builder.Logging.ClearProviders(); //Limpia los logs
-//builder.Logging.AddConsole(); //Añade el log de consola
-builder.Host.UseSerilog();
+//builder.Logging.AddConsole(); //Aï¿½ade el log de consola
+
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+if (environment == Environments.Development)
+{
+    builder.Host.UseSerilog(
+        (context, loggerConfiguration) => loggerConfiguration
+            .MinimumLevel.Debug()
+            .WriteTo.Console());
+}
+else
+{
+    var secretClient = new SecretClient(
+            new Uri("https://democityinfoapikeyvault.vault.azure.net/"),
+            new DefaultAzureCredential());
+    builder.Configuration.AddAzureKeyVault(secretClient,
+        new KeyVaultSecretManager());
+
+
+    builder.Host.UseSerilog(
+        (context, loggerConfiguration) => loggerConfiguration
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .WriteTo.File("logs/cityinfo.txt", rollingInterval: RollingInterval.Day)
+            .WriteTo.ApplicationInsights(new TelemetryConfiguration
+            {
+                InstrumentationKey = builder.Configuration["ApplicationInsightsInstrumentationKey"]
+            }, TelemetryConverter.Traces));
+}
 
 
 // Add services to the container. SERVICES.
@@ -58,7 +89,6 @@ builder.Services.AddSingleton<CitiesDataStore>();
 
 builder.Services.AddDbContext<CityInfoContext>(dbContextOptions =>
 dbContextOptions.UseSqlServer(builder.Configuration["ConnectionStrings:CityInfoDBConnectionString"]));
-//"Server=localhost\\SQLEXPRESS;Database=Agenda;Trusted_Connection=True;"
 
 builder.Services.AddScoped<ICityInfoRepository, CityInfoRepository>(); //Una por request
 
@@ -142,18 +172,26 @@ builder.Services.AddSwaggerGen(setupAction =>
     });
 });
 
-//Instancia del builder para nuestra aplicación
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
+//Instancia del builder para nuestra aplicaciï¿½n
 var app = builder.Build();
 
 // Configure the HTTP request pipeline. Construye la inyeccion de dependencias
 if (!app.Environment.IsDevelopment())
 {
+    //app.UseDeveloperExceptionPage(); //middleware para tratar errores
     app.UseExceptionHandler(); //middleware para tratar errores
 }
 
+app.UseForwardedHeaders(); //Asegura que el traspaso a los Forwarded Headers puede consumir los valores del header para el procesamiento
+
 // Configure the HTTP request pipeline. Construye la inyeccion de dependencias
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger(); //Middleware controla las peticiones HTTP
     app.UseSwaggerUI(setupAction =>
     {
@@ -166,7 +204,7 @@ if (app.Environment.IsDevelopment())
                                               description.GroupName.ToUpperInvariant());
         }
     }); //MIDDLEWARES
-}
+//}
 
 app.UseHttpsRedirection();
 

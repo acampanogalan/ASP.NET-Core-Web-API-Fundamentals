@@ -8,7 +8,7 @@
             <summary>
             Get a city by id
             </summary>
-            <param name="id">If of the city</param>
+            <param name="cityId">If of the city</param>
             <param name="includePointsOfInterest">Include or not the points of interest</param>
             <returns>City</returns>
             <response code = "200">Returns the city</response>
