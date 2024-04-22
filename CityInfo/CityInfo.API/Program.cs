@@ -1,10 +1,14 @@
+using Asp.Versioning;
+using Asp.Versioning.ApiExplorer;
 using CityInfo.API;
 using CityInfo.API.DbContexts;
 using CityInfo.API.Services;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Reflection;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
@@ -40,7 +44,8 @@ builder.Services.AddProblemDetails(); //Middleware para tratar errores
 
 // Registra los servicios de la aplicacion swagger necesarios
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+
 builder.Services.AddSingleton<FileExtensionContentTypeProvider>();
 
 #if DEBUG
@@ -82,6 +87,61 @@ builder.Services.AddAuthorization(options =>
     });
 });
 
+builder.Services.AddApiVersioning(setupAction =>
+{
+    setupAction.ReportApiVersions = true;
+    setupAction.AssumeDefaultVersionWhenUnspecified = true;
+    setupAction.DefaultApiVersion = new ApiVersion(1, 0);
+}).AddMvc()
+.AddApiExplorer(setupAction =>
+{
+    setupAction.SubstituteApiVersionInUrl = true;
+});
+
+var apiVersionDescriptionProvider = builder.Services.BuildServiceProvider()
+    .GetRequiredService<IApiVersionDescriptionProvider>();
+
+builder.Services.AddSwaggerGen(setupAction =>
+{
+    foreach (var description in apiVersionDescriptionProvider.ApiVersionDescriptions)
+    {
+        setupAction.SwaggerDoc(
+            $"{description.GroupName}",
+            new()
+            {
+                Title = "City Info API",
+                Version = description.ApiVersion.ToString(),
+                Description = "Through this API you can access cities and their points of interest."
+            });
+    }
+    var xmlCommentsFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlCommentsFullPath = Path.Combine(AppContext.BaseDirectory, xmlCommentsFile);
+
+    setupAction.IncludeXmlComments(xmlCommentsFullPath);
+
+    setupAction.AddSecurityDefinition("CityInfoApiBearerAuth", new()
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        Description = "Input a valid token to acces this API"
+    });
+    
+    setupAction.AddSecurityRequirement(new()
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "CityInfoApiBearerAuth"
+                }
+            },
+            new List<String>()
+        }
+    });
+});
+
 //Instancia del builder para nuestra aplicación
 var app = builder.Build();
 
@@ -95,7 +155,17 @@ if (!app.Environment.IsDevelopment())
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger(); //Middleware controla las peticiones HTTP
-    app.UseSwaggerUI(); //MIDDLEWARES
+    app.UseSwaggerUI(setupAction =>
+    {
+        var descriptions = app.DescribeApiVersions();
+
+        foreach (var description in descriptions)
+        {
+            setupAction.SwaggerEndpoint(
+                               $"/swagger/{description.GroupName}/swagger.json",
+                                              description.GroupName.ToUpperInvariant());
+        }
+    }); //MIDDLEWARES
 }
 
 app.UseHttpsRedirection();
