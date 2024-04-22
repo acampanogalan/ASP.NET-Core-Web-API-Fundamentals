@@ -12,7 +12,7 @@
             TotalItemCount = totalItemCount;
             PageSize = pageSize;
             CurrentPage = currentPage;
-            TotalPageCount = (int)Math.Ceiling(totalItemCount / (double)pageSize); //Funcion techo
+            TotalPageCount = (int)Math.Ceiling(totalItemCount / (double)pageSize);
         }
     }
 }

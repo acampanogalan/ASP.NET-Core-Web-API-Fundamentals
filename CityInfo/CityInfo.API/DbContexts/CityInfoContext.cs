@@ -8,8 +8,8 @@ namespace CityInfo.API.DbContexts
         public DbSet<City> Cities { get; set; }
         public DbSet<PointOfInterest> PointsOfInterest { get; set; }
 
-        //COnectar con ddbb
-        public CityInfoContext(DbContextOptions<CityInfoContext> options): base(options)
+        public CityInfoContext(DbContextOptions<CityInfoContext> options)
+            : base(options)
         {
         }
 

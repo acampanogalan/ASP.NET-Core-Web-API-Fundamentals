@@ -8,10 +8,10 @@
             <summary>
             Get a city by id
             </summary>
-            <param name="id">If of the city</param>
-            <param name="includePointsOfInterest">Include or not the points of interest</param>
-            <returns>City</returns>
-            <response code = "200">Returns the city</response>
+            <param name="cityId">The id of the city to get</param>
+            <param name="includePointsOfInterest">Whether or not to include the points of interest</param>
+            <response code="200">Returns the requested city</response>
+            <returns>A city with or without points of interest</returns>
         </member>
         <member name="T:CityInfo.API.Migrations.CityInfoDBInitialMigration">
             <inheritdoc />
@@ -36,6 +36,26 @@
         </member>
         <member name="M:CityInfo.API.Migrations.CityInfoDBCSUpdated.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
             <inheritdoc />
+        </member>
+        <member name="T:CityInfo.API.Models.CityWithoutPointsOfInterestDto">
+            <summary>
+            A city without points of interest
+            </summary>
+        </member>
+        <member name="P:CityInfo.API.Models.CityWithoutPointsOfInterestDto.Id">
+            <summary>
+            The id of the city
+            </summary>
+        </member>
+        <member name="P:CityInfo.API.Models.CityWithoutPointsOfInterestDto.Name">
+            <summary>
+            The name of the city 
+            </summary>
+        </member>
+        <member name="P:CityInfo.API.Models.CityWithoutPointsOfInterestDto.Description">
+            <summary>
+            The description of the city
+            </summary>
         </member>
     </members>
 </doc>
