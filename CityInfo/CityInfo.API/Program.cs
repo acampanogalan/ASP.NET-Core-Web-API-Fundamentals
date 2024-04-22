@@ -14,6 +14,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Reflection;
+using System.Security.Cryptography.Xml;
+using System.Text;
+
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
@@ -74,25 +77,26 @@ builder.Services.AddProblemDetails(); //Middleware para tratar errores
 //});
 
 // Registra los servicios de la aplicacion swagger necesarios
-builder.Services.AddEndpointsApiExplorer();
+//builder.Services.AddEndpointsApiExplorer();
 
 
 builder.Services.AddSingleton<FileExtensionContentTypeProvider>();
 
 #if DEBUG
 builder.Services.AddTransient<IMailService, LocalMailService>(); //Inyeccion de dependencias
-#else
+#else 
 builder.Services.AddTransient<IMailService, CloudMailService>(); //Inyeccion de dependencias
 #endif
-
 builder.Services.AddSingleton<CitiesDataStore>();
 
-builder.Services.AddDbContext<CityInfoContext>(dbContextOptions =>
-dbContextOptions.UseSqlServer(builder.Configuration["ConnectionStrings:CityInfoDBConnectionString"]));
+builder.Services.AddDbContext<CityInfoContext>(
+    dbContextOptions => dbContextOptions.UseSqlite(
+        builder.Configuration["ConnectionStrings:CityInfoDBConnectionString"]));
 
 builder.Services.AddScoped<ICityInfoRepository, CityInfoRepository>(); //Una por request
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies()); //CurrentAssenbliesm cityInfo.API assembly sera escaneada para ver los profiles
+    //AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies()); //CurrentAssenbliesm cityInfo.API assembly sera escaneada para ver los profiles
 
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer(options =>
@@ -104,9 +108,11 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Authentication:Issuer"],
             ValidAudience = builder.Configuration["Authentication:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Convert.FromBase64String(builder.Configuration["Authentication:SecretForKey"]))
+            IssuerSigningKey = new SymmetricSecurityKey(
+               Convert.FromBase64String(builder.Configuration["Authentication:SecretForKey"]))
         };
-    });
+    }
+    );
 
 builder.Services.AddAuthorization(options =>
 {
@@ -128,12 +134,17 @@ builder.Services.AddApiVersioning(setupAction =>
     setupAction.SubstituteApiVersionInUrl = true;
 });
 
+// Learn more about configuring Swagger/OpenAPI at
+// https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+
 var apiVersionDescriptionProvider = builder.Services.BuildServiceProvider()
-    .GetRequiredService<IApiVersionDescriptionProvider>();
+  .GetRequiredService<IApiVersionDescriptionProvider>();
 
 builder.Services.AddSwaggerGen(setupAction =>
 {
-    foreach (var description in apiVersionDescriptionProvider.ApiVersionDescriptions)
+    foreach (var description in
+        apiVersionDescriptionProvider.ApiVersionDescriptions)
     {
         setupAction.SwaggerDoc(
             $"{description.GroupName}",
@@ -144,6 +155,7 @@ builder.Services.AddSwaggerGen(setupAction =>
                 Description = "Through this API you can access cities and their points of interest."
             });
     }
+
     var xmlCommentsFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlCommentsFullPath = Path.Combine(AppContext.BaseDirectory, xmlCommentsFile);
 
@@ -152,29 +164,28 @@ builder.Services.AddSwaggerGen(setupAction =>
     setupAction.AddSecurityDefinition("CityInfoApiBearerAuth", new()
     {
         Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        Description = "Input a valid token to acces this API"
+        Scheme = "Bearer",
+        Description = "Input a valid token to access this API"
     });
-    
+
     setupAction.AddSecurityRequirement(new()
     {
         {
-            new OpenApiSecurityScheme
+            new ()
             {
-                Reference = new OpenApiReference
-                {
+                Reference = new OpenApiReference {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "CityInfoApiBearerAuth"
-                }
+                    Id = "CityInfoApiBearerAuth" }
             },
-            new List<String>()
+            new List<string>()
         }
     });
 });
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+    | ForwardedHeaders.XForwardedProto;
 });
 
 //Instancia del builder para nuestra aplicaci�n
@@ -193,16 +204,15 @@ app.UseForwardedHeaders(); //Asegura que el traspaso a los Forwarded Headers pue
 //if (app.Environment.IsDevelopment())
 //{
     app.UseSwagger(); //Middleware controla las peticiones HTTP
-    app.UseSwaggerUI(setupAction =>
+app.UseSwaggerUI(setupAction =>
+{
+    var descriptions = app.DescribeApiVersions();
+    foreach (var description in descriptions)
     {
-        var descriptions = app.DescribeApiVersions();
-
-        foreach (var description in descriptions)
-        {
-            setupAction.SwaggerEndpoint(
-                               $"/swagger/{description.GroupName}/swagger.json",
-                                              description.GroupName.ToUpperInvariant());
-        }
+        setupAction.SwaggerEndpoint(
+            $"/swagger/{description.GroupName}/swagger.json",
+            description.GroupName.ToUpperInvariant());
+    }
     }); //MIDDLEWARES
 //}
 
@@ -220,5 +230,3 @@ app.UseEndpoints(endpoints =>
 });
 
 app.Run();
-
-

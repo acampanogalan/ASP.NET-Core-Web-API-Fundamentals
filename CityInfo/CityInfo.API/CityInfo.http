@@ -1,6 +1,6 @@
 @schema=https
 @hostname=localhost 
-@port=7185
+@port=7169
 
 GET {{schema}}://{{hostname}}:{{port}}/api/v2/cities
 
